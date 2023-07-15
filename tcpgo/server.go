@@ -31,28 +31,18 @@ func (s *Server) Start() error {
 		return err
 	}
 
+	fmt.Printf("server is running, ip:%v, port:%v\n", s.Ip, s.Port)
+
+	connID := 0
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			return err
 		}
 
-		for {
-			readBuf := make([]byte, 1024)
-			cnt, err := conn.Read(readBuf)
-			if err != nil {
-				fmt.Println(err)
-				break
-			}
-
-			cnt, err = conn.Write(readBuf[:cnt])
-			if err != nil {
-				fmt.Println(err)
-				break
-			}
-
-			fmt.Println(string(readBuf[:cnt]))
-		}
+		fmt.Printf("new connection, reomte:%v,id:%v\n", conn.RemoteAddr(), connID)
+		newConn := NewConneciton(conn, uint32(connID))
+		newConn.Start()
 	}
 }
 

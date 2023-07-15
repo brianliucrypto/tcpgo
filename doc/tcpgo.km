@@ -98,6 +98,73 @@
                         ]
                     }
                 ]
+            },
+            {
+                "data": {
+                    "id": "cu2b38cxavk0",
+                    "created": 1689379604719,
+                    "text": "connection"
+                },
+                "children": [
+                    {
+                        "data": {
+                            "id": "cu2b3cqb2ds0",
+                            "created": 1689379614236,
+                            "text": "attribute"
+                        },
+                        "children": [
+                            {
+                                "data": {
+                                    "id": "cu2b3ma78ds0",
+                                    "created": 1689379635029,
+                                    "text": "net.Conn"
+                                },
+                                "children": []
+                            },
+                            {
+                                "data": {
+                                    "id": "cu2b3s1nbnc0",
+                                    "created": 1689379647573,
+                                    "text": "connID"
+                                },
+                                "children": []
+                            }
+                        ]
+                    },
+                    {
+                        "data": {
+                            "id": "cu2b3g8jzcw0",
+                            "created": 1689379621869,
+                            "text": "function"
+                        },
+                        "children": [
+                            {
+                                "data": {
+                                    "id": "cu2b45n7bmg0",
+                                    "created": 1689379677175,
+                                    "text": "Start"
+                                },
+                                "children": []
+                            },
+                            {
+                                "data": {
+                                    "id": "cu2b47ioyw80",
+                                    "created": 1689379681255,
+                                    "text": "StartRead"
+                                },
+                                "children": []
+                            },
+                            {
+                                "data": {
+                                    "id": "cu2b4apli740",
+                                    "created": 1689379688203,
+                                    "text": "StartWrite"
+                                },
+                                "children": []
+                            }
+                        ]
+                    }
+                ]
             }
         ]
     },
