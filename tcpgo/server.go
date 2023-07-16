@@ -44,8 +44,9 @@ func (s *Server) Start() error {
 		}
 
 		fmt.Printf("new connection, reomte:%v,id:%v\n", conn.RemoteAddr(), connID)
-		newConn := NewConneciton(conn, uint32(connID))
+		newConn := NewConneciton(uint32(connID), conn, s.Routers)
 		newConn.Start()
+		connID++
 	}
 }
 

@@ -64,22 +64,26 @@ func (c *Connection) StartRead() {
 			break
 		}
 
-		d, err := message.Unpack(readBuf[:cnt])
+		msgHeader, err := message.Unpack(readBuf[:cnt])
 		if err != nil {
 			fmt.Println(err)
 			break
 		}
 
-		if d.GetMsgLen() > 0 {
-			cnt, err := io.ReadFull(c.Conn, readBuf)
+		if msgHeader.GetMsgLen() > 0 {
+			readBuf := make([]byte, msgHeader.GetMsgLen())
+			cnt, err = io.ReadFull(c.Conn, readBuf)
 			if err != nil {
 				fmt.Println(err)
 				break
 			}
+
+			msg := msgHeader.(*Message)
+			msg.Data = readBuf
 		}
 
 		fmt.Printf("connid:%v,receive msg:%v\n", c.ConnID, (readBuf[:cnt]))
-		c.msgChan <- d
+		c.msgChan <- msgHeader
 	}
 
 }
@@ -93,7 +97,12 @@ func (c *Connection) StartWrite() {
 				break
 			}
 
-			_, err := c.Conn.Write(data)
+			d, err := data.Pack()
+			if err != nil {
+				break
+			}
+
+			_, err = c.Conn.Write(d)
 			if err != nil {
 				fmt.Print("write error", err)
 			}
