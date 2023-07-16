@@ -25,6 +25,7 @@ func NewServer(name, ipVersion, ip string, port uint32) *Server {
 		IpVersion: ipVersion,
 		Ip:        ip,
 		Port:      port,
+		Routers:   make(map[uint32]iface.IRouter),
 	}
 }
 

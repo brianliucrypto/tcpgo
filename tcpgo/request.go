@@ -11,6 +11,6 @@ func (r *Request) GetConnection() iface.IConnection {
 	return r.Conn
 }
 
-func (r *Request) GetData() iface.IMessage {
+func (r *Request) GetMessage() iface.IMessage {
 	return r.Message
 }

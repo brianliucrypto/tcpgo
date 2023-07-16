@@ -25,7 +25,7 @@ func NewConneciton(connID uint32, conn net.Conn, routerMap map[uint32]iface.IRou
 		Conn:      conn,
 		ConnID:    connID,
 		routers:   routerMap,
-		msgChan:   make(chan iface.IMessage),
+		msgChan:   make(chan iface.IMessage, 1024),
 		isClose:   false,
 		ExitChain: make(chan struct{}),
 	}
@@ -34,7 +34,6 @@ func NewConneciton(connID uint32, conn net.Conn, routerMap map[uint32]iface.IRou
 func (c *Connection) Start() {
 	go c.StartRead()
 	go c.StartWrite()
-
 }
 
 func (c *Connection) Stop() {
@@ -72,7 +71,7 @@ func (c *Connection) StartRead() {
 
 		if msgHeader.GetMsgLen() > 0 {
 			readBuf := make([]byte, msgHeader.GetMsgLen())
-			cnt, err = io.ReadFull(c.Conn, readBuf)
+			_, err = io.ReadFull(c.Conn, readBuf)
 			if err != nil {
 				fmt.Println(err)
 				break
@@ -82,8 +81,20 @@ func (c *Connection) StartRead() {
 			msg.Data = readBuf
 		}
 
-		fmt.Printf("connid:%v,receive msg:%v\n", c.ConnID, (readBuf[:cnt]))
-		c.msgChan <- msgHeader
+		router, ok := c.routers[msgHeader.GetMsgId()]
+		if !ok {
+			fmt.Println("router not found")
+			break
+		}
+
+		request := &Request{
+			Conn:    c,
+			Message: msgHeader.(*Message),
+		}
+
+		router.PreHandle(request)
+		router.Handle(request)
+		router.PostHandle(request)
 	}
 
 }
@@ -124,4 +135,9 @@ func (c *Connection) GetConnection() net.Conn {
 
 func (c *Connection) GetRouters() map[uint32]iface.IRouter {
 	return c.routers
+}
+
+func (c *Connection) SendMessage(request iface.IRequest) error {
+	c.msgChan <- request.GetMessage()
+	return nil
 }
