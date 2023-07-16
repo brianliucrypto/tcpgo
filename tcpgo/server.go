@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/brianliucrypto/tcpgo/constant"
+	"github.com/brianliucrypto/tcpgo/iface"
 )
 
 type Server struct {
@@ -13,6 +14,8 @@ type Server struct {
 	IpVersion string
 	Ip        string
 	Port      uint32
+
+	Routers map[uint32]iface.IRouter
 }
 
 func NewServer(name, ipVersion, ip string, port uint32) *Server {
@@ -53,4 +56,8 @@ func (s *Server) Serve() {
 	go s.Start()
 
 	select {}
+}
+
+func (s *Server) AddRouter(msgID uint32, router iface.IRouter) {
+	s.Routers[msgID] = router
 }

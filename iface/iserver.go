@@ -9,4 +9,7 @@ type IServer interface {
 
 	// Run a server
 	Serve()
+
+	// add router
+	AddRouter(msgId uint32, router IRouter)
 }

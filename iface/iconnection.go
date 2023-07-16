@@ -16,4 +16,6 @@ type IConnection interface {
 	GetConnID() uint32
 
 	GetConnection() net.Conn
+
+	GetRouters() map[uint32]IRouter
 }

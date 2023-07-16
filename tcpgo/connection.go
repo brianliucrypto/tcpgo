@@ -2,24 +2,30 @@ package tcpgo
 
 import (
 	"fmt"
+	"io"
 	"net"
+
+	"github.com/brianliucrypto/tcpgo/iface"
 )
 
 type Connection struct {
 	Conn   net.Conn
 	ConnID uint32
 
-	msgChan chan []byte
+	msgChan chan iface.IMessage
+
+	routers map[uint32]iface.IRouter
 
 	isClose   bool
 	ExitChain chan struct{}
 }
 
-func NewConneciton(conn net.Conn, connID uint32) *Connection {
+func NewConneciton(connID uint32, conn net.Conn, routerMap map[uint32]iface.IRouter) *Connection {
 	return &Connection{
 		Conn:      conn,
 		ConnID:    connID,
-		msgChan:   make(chan []byte),
+		routers:   routerMap,
+		msgChan:   make(chan iface.IMessage),
 		isClose:   false,
 		ExitChain: make(chan struct{}),
 	}
@@ -35,7 +41,7 @@ func (c *Connection) Stop() {
 	if c.isClose {
 		return
 	}
-	fmt.Printf("connid:%v stop", c.ConnID)
+	fmt.Printf("connid:%v stop\n", c.ConnID)
 
 	c.isClose = true
 	c.Conn.Close()
@@ -46,25 +52,40 @@ func (c *Connection) Stop() {
 }
 
 func (c *Connection) StartRead() {
-	fmt.Printf("connid:%v reader routine is running", c.ConnID)
+	fmt.Printf("connid:%v reader routine is running\n", c.ConnID)
 	defer c.Stop()
 
 	for {
-		readBuf := make([]byte, 1024)
-		cnt, err := c.Conn.Read(readBuf)
+		message := &Message{}
+		readBuf := make([]byte, message.GetHeadLen())
+		cnt, err := io.ReadFull(c.Conn, readBuf)
 		if err != nil {
 			fmt.Println(err)
 			break
 		}
 
-		fmt.Print("receive msg", string(readBuf[:cnt]))
-		c.msgChan <- readBuf[:cnt]
+		d, err := message.Unpack(readBuf[:cnt])
+		if err != nil {
+			fmt.Println(err)
+			break
+		}
+
+		if d.GetMsgLen() > 0 {
+			cnt, err := io.ReadFull(c.Conn, readBuf)
+			if err != nil {
+				fmt.Println(err)
+				break
+			}
+		}
+
+		fmt.Printf("connid:%v,receive msg:%v\n", c.ConnID, (readBuf[:cnt]))
+		c.msgChan <- d
 	}
 
 }
 
 func (c *Connection) StartWrite() {
-	fmt.Printf("connid:%v writer routine is running", c.ConnID)
+	fmt.Printf("connid:%v writer routine is running\n", c.ConnID)
 	for {
 		select {
 		case data, ok := <-c.msgChan:
@@ -90,4 +111,8 @@ func (c *Connection) GetConnID() uint32 {
 
 func (c *Connection) GetConnection() net.Conn {
 	return c.Conn
+}
+
+func (c *Connection) GetRouters() map[uint32]iface.IRouter {
+	return c.routers
 }
