@@ -52,18 +52,21 @@ func (m *MessageHandler) HandleMessage(message iface.IRequest) {
 }
 
 func (m *MessageHandler) SendMessage2Queue(message iface.IRequest) {
+	fmt.Println("receiveMessage start")
 	index := message.GetConnection().GetConnID() % m.poolSize
 	m.messageChan[index] <- message
 }
 
 func (m *MessageHandler) receiveMessage(index int) {
+	defer fmt.Println("receiveMessage exit, index:", index)
+	fmt.Println("receiveMessage start, index:", index)
 	for {
 		select {
 		case message := <-m.messageChan[index]:
 			m.HandleMessage(message)
 
 		case <-m.exitChan:
-			break
+			return
 		}
 	}
 }
