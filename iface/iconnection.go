@@ -17,7 +17,5 @@ type IConnection interface {
 
 	GetConnection() net.Conn
 
-	GetRouters() map[uint32]IRouter
-
 	SendMessage(IRequest) error
 }

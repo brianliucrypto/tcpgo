@@ -14,20 +14,20 @@ type Connection struct {
 
 	msgChan chan iface.IMessage
 
-	routers map[uint32]iface.IRouter
+	msgHandler iface.IMessageHandler
 
 	isClose   bool
 	ExitChain chan struct{}
 }
 
-func NewConneciton(connID uint32, conn net.Conn, routerMap map[uint32]iface.IRouter) *Connection {
+func NewConneciton(connID uint32, conn net.Conn, msgHandler iface.IMessageHandler) *Connection {
 	return &Connection{
-		Conn:      conn,
-		ConnID:    connID,
-		routers:   routerMap,
-		msgChan:   make(chan iface.IMessage, 1024),
-		isClose:   false,
-		ExitChain: make(chan struct{}),
+		Conn:       conn,
+		ConnID:     connID,
+		msgHandler: msgHandler,
+		msgChan:    make(chan iface.IMessage, 1024),
+		isClose:    false,
+		ExitChain:  make(chan struct{}),
 	}
 }
 
@@ -55,15 +55,15 @@ func (c *Connection) StartRead() {
 	defer c.Stop()
 
 	for {
-		message := &Message{}
-		readBuf := make([]byte, message.GetHeadLen())
+		packer := NewPack()
+		readBuf := make([]byte, packer.GetHeadLen())
 		cnt, err := io.ReadFull(c.Conn, readBuf)
 		if err != nil {
 			fmt.Println(err)
 			break
 		}
 
-		msgHeader, err := message.Unpack(readBuf[:cnt])
+		msgHeader, err := packer.Unpack(readBuf[:cnt])
 		if err != nil {
 			fmt.Println(err)
 			break
@@ -81,20 +81,12 @@ func (c *Connection) StartRead() {
 			msg.Data = readBuf
 		}
 
-		router, ok := c.routers[msgHeader.GetMsgId()]
-		if !ok {
-			fmt.Println("router not found")
-			break
-		}
-
 		request := &Request{
 			Conn:    c,
 			Message: msgHeader.(*Message),
 		}
 
-		router.PreHandle(request)
-		router.Handle(request)
-		router.PostHandle(request)
+		c.msgHandler.SendMessage2Queue(request)
 	}
 
 }
@@ -108,7 +100,7 @@ func (c *Connection) StartWrite() {
 				break
 			}
 
-			d, err := data.Pack()
+			d, err := NewPack().Pack(data)
 			if err != nil {
 				break
 			}
@@ -131,10 +123,6 @@ func (c *Connection) GetConnID() uint32 {
 
 func (c *Connection) GetConnection() net.Conn {
 	return c.Conn
-}
-
-func (c *Connection) GetRouters() map[uint32]iface.IRouter {
-	return c.routers
 }
 
 func (c *Connection) SendMessage(request iface.IRequest) error {

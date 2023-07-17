@@ -15,17 +15,17 @@ type Server struct {
 	Ip        string
 	Port      uint32
 
-	Routers map[uint32]iface.IRouter
+	msgHandler iface.IMessageHandler
 }
 
 func NewServer(name, ipVersion, ip string, port uint32) *Server {
 	return &Server{
-		Name:      name,
-		Version:   constant.Version,
-		IpVersion: ipVersion,
-		Ip:        ip,
-		Port:      port,
-		Routers:   make(map[uint32]iface.IRouter),
+		Name:       name,
+		Version:    constant.Version,
+		IpVersion:  ipVersion,
+		Ip:         ip,
+		Port:       port,
+		msgHandler: NewMessageHandler(),
 	}
 }
 
@@ -37,6 +37,8 @@ func (s *Server) Start() error {
 
 	fmt.Printf("server is running, ip:%v, port:%v\n", s.Ip, s.Port)
 
+	s.msgHandler.Start()
+
 	connID := 0
 	for {
 		conn, err := listener.Accept()
@@ -45,13 +47,14 @@ func (s *Server) Start() error {
 		}
 
 		fmt.Printf("new connection, reomte:%v,id:%v\n", conn.RemoteAddr(), connID)
-		newConn := NewConneciton(uint32(connID), conn, s.Routers)
+		newConn := NewConneciton(uint32(connID), conn, s.msgHandler)
 		newConn.Start()
 		connID++
 	}
 }
 
 func (s *Server) Stop() {
+	s.msgHandler.Stop()
 }
 
 func (s *Server) Serve() {
@@ -61,5 +64,5 @@ func (s *Server) Serve() {
 }
 
 func (s *Server) AddRouter(msgID uint32, router iface.IRouter) {
-	s.Routers[msgID] = router
+	s.msgHandler.AddRouter(msgID, router)
 }
