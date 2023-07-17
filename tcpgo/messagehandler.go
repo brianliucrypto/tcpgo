@@ -26,6 +26,7 @@ func NewMessageHandler() iface.IMessageHandler {
 
 func (m *MessageHandler) Start() {
 	for i := 0; i < int(m.poolSize); i++ {
+		m.messageChan[i] = make(chan iface.IRequest, 1024)
 		go m.receiveMessage(i, m.messageChan[i])
 	}
 }
