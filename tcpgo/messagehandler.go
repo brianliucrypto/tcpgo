@@ -26,7 +26,7 @@ func NewMessageHandler() iface.IMessageHandler {
 
 func (m *MessageHandler) Start() {
 	for i := 0; i < int(m.poolSize); i++ {
-		go m.receiveMessage(i)
+		go m.receiveMessage(i, m.messageChan[i])
 	}
 }
 
@@ -49,6 +49,7 @@ func (m *MessageHandler) HandleMessage(message iface.IRequest) {
 	router.PreHandle(message)
 	router.Handle(message)
 	router.PostHandle(message)
+	fmt.Println("receiveMessage end")
 }
 
 func (m *MessageHandler) SendMessage2Queue(message iface.IRequest) {
@@ -57,12 +58,12 @@ func (m *MessageHandler) SendMessage2Queue(message iface.IRequest) {
 	m.messageChan[index] <- message
 }
 
-func (m *MessageHandler) receiveMessage(index int) {
+func (m *MessageHandler) receiveMessage(index int, messageChan chan iface.IRequest) {
 	defer fmt.Println("receiveMessage exit, index:", index)
 	fmt.Println("receiveMessage start, index:", index)
 	for {
 		select {
-		case message := <-m.messageChan[index]:
+		case message := <-messageChan:
 			m.HandleMessage(message)
 
 		case <-m.exitChan:
