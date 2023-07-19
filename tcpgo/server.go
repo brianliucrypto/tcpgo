@@ -36,7 +36,7 @@ func NewServer(optins ...func(*Server)) *Server {
 		Ip:                "",
 		Port:              8888,
 		maxConnection:     1024,
-		workPoolSize:      1024,
+		workPoolSize:      4,
 		writeCacheSize:    1024,
 		connectionManager: NewConnectionManager(),
 	}
@@ -56,7 +56,7 @@ func (s *Server) Start() {
 		return
 	}
 
-	tlog.Info("server is running, ip:%v, port:%v\n", s.Ip, s.Port)
+	tlog.Info("server is running, ip:%v, port:%v", s.Ip, s.Port)
 
 	s.msgHandler.Start()
 
@@ -73,7 +73,7 @@ func (s *Server) Start() {
 			continue
 		}
 
-		tlog.Info("new connection, reomte:%v,id:%v\n", conn.RemoteAddr(), connID.Load())
+		tlog.Info("new connection, reomte:%v,id:%v", conn.RemoteAddr(), connID.Load())
 		newConn := NewConneciton(s, connID.Load(), uint32(s.writeCacheSize), conn)
 		newConn.Start()
 		connID.Add(1)

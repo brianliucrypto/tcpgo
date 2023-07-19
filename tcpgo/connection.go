@@ -63,7 +63,7 @@ func (c *Connection) Stop() {
 }
 
 func (c *Connection) StartRead() {
-	tlog.Info("connid:%v reader routine is running\n", c.ConnID)
+	tlog.Info("connid:%v reader routine is running", c.ConnID)
 	defer c.Stop()
 
 	for {
@@ -104,7 +104,7 @@ func (c *Connection) StartRead() {
 }
 
 func (c *Connection) StartWrite() {
-	tlog.Info("connid:%v writer routine is running\n", c.ConnID)
+	tlog.Info("connid:%v writer routine is running", c.ConnID)
 	for {
 		select {
 		case data, ok := <-c.msgChan:
@@ -119,7 +119,7 @@ func (c *Connection) StartWrite() {
 
 			_, err = c.Conn.Write(d)
 			if err != nil {
-				tlog.Info("write error", err)
+				tlog.Info("write error:%v", err)
 			}
 
 		case <-c.ExitChain:
