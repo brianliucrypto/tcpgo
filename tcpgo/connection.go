@@ -2,7 +2,6 @@ package tcpgo
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -72,13 +71,13 @@ func (c *Connection) StartRead() {
 		readBuf := make([]byte, packer.GetHeadLen())
 		cnt, err := io.ReadFull(c.Conn, readBuf)
 		if err != nil {
-			tlog.Info(err)
+			tlog.Info(err.Error())
 			break
 		}
 
 		msgHeader, err := packer.Unpack(readBuf[:cnt])
 		if err != nil {
-			tlog.Info(err)
+			tlog.Info(err.Error())
 			break
 		}
 
@@ -86,7 +85,7 @@ func (c *Connection) StartRead() {
 			readBuf := make([]byte, msgHeader.GetMsgLen())
 			_, err = io.ReadFull(c.Conn, readBuf)
 			if err != nil {
-				tlog.Info(err)
+				tlog.Info(err.Error())
 				break
 			}
 
@@ -120,7 +119,7 @@ func (c *Connection) StartWrite() {
 
 			_, err = c.Conn.Write(d)
 			if err != nil {
-				fmt.Print("write error", err)
+				tlog.Info("write error", err)
 			}
 
 		case <-c.ExitChain:
