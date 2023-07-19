@@ -18,7 +18,7 @@ func NewMessageHandler(poolSize uint32) iface.IMessageHandler {
 	return &MessageHandler{
 		routers:     make(map[uint32]iface.IRouter),
 		poolSize:    poolSize,
-		messageChan: make([]chan iface.IRequest, 4),
+		messageChan: make([]chan iface.IRequest, poolSize),
 		exitChan:    make(chan struct{}),
 	}
 }
