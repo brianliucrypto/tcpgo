@@ -1,9 +1,8 @@
 package tcpgo
 
 import (
-	"fmt"
-
 	"github.com/brianliucrypto/tcpgo/iface"
+	"github.com/brianliucrypto/tcpgo/tlog"
 )
 
 type MessageHandler struct {
@@ -15,10 +14,10 @@ type MessageHandler struct {
 	exitChan chan struct{}
 }
 
-func NewMessageHandler() iface.IMessageHandler {
+func NewMessageHandler(poolSize uint32) iface.IMessageHandler {
 	return &MessageHandler{
 		routers:     make(map[uint32]iface.IRouter),
-		poolSize:    4,
+		poolSize:    poolSize,
 		messageChan: make([]chan iface.IRequest, 4),
 		exitChan:    make(chan struct{}),
 	}
@@ -43,25 +42,25 @@ func (m *MessageHandler) AddRouter(msgID uint32, router iface.IRouter) {
 func (m *MessageHandler) HandleMessage(message iface.IRequest) {
 	router, ok := m.routers[message.GetMessage().GetMsgId()]
 	if !ok {
-		fmt.Println("router not found")
+		tlog.Info("router not found")
 		return
 	}
 
 	router.PreHandle(message)
 	router.Handle(message)
 	router.PostHandle(message)
-	fmt.Println("receiveMessage end")
+	tlog.Info("receiveMessage end")
 }
 
 func (m *MessageHandler) SendMessage2Queue(message iface.IRequest) {
-	fmt.Println("receiveMessage start")
+	tlog.Info("receiveMessage start")
 	index := message.GetConnection().GetConnID() % m.poolSize
 	m.messageChan[index] <- message
 }
 
 func (m *MessageHandler) receiveMessage(index int, messageChan chan iface.IRequest) {
-	defer fmt.Println("receiveMessage exit, index:", index)
-	fmt.Println("receiveMessage start, index:", index)
+	defer tlog.Info("receiveMessage exit, index:", index)
+	tlog.Info("receiveMessage start, index:", index)
 	for {
 		select {
 		case message := <-messageChan:

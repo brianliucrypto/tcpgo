@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/brianliucrypto/tcpgo/iface"
+	"github.com/brianliucrypto/tcpgo/tlog"
 )
 
 type Connection struct {
@@ -25,12 +26,12 @@ type Connection struct {
 	propertyLock sync.RWMutex
 }
 
-func NewConneciton(server iface.IServer, connID uint32, conn net.Conn) *Connection {
+func NewConneciton(server iface.IServer, connID, writeCacheSize uint32, conn net.Conn) *Connection {
 	return &Connection{
 		server:    server,
 		Conn:      conn,
 		ConnID:    connID,
-		msgChan:   make(chan iface.IMessage, 1024),
+		msgChan:   make(chan iface.IMessage, writeCacheSize),
 		isClose:   false,
 		ExitChain: make(chan struct{}),
 		property:  make(map[string]interface{}),
@@ -49,7 +50,7 @@ func (c *Connection) Stop() {
 	if c.isClose {
 		return
 	}
-	fmt.Printf("connid:%v stop\n", c.ConnID)
+	tlog.Info("connid:%v stop\n", c.ConnID)
 
 	c.isClose = true
 	c.Conn.Close()
@@ -63,7 +64,7 @@ func (c *Connection) Stop() {
 }
 
 func (c *Connection) StartRead() {
-	fmt.Printf("connid:%v reader routine is running\n", c.ConnID)
+	tlog.Info("connid:%v reader routine is running\n", c.ConnID)
 	defer c.Stop()
 
 	for {
@@ -71,13 +72,13 @@ func (c *Connection) StartRead() {
 		readBuf := make([]byte, packer.GetHeadLen())
 		cnt, err := io.ReadFull(c.Conn, readBuf)
 		if err != nil {
-			fmt.Println(err)
+			tlog.Info(err)
 			break
 		}
 
 		msgHeader, err := packer.Unpack(readBuf[:cnt])
 		if err != nil {
-			fmt.Println(err)
+			tlog.Info(err)
 			break
 		}
 
@@ -85,7 +86,7 @@ func (c *Connection) StartRead() {
 			readBuf := make([]byte, msgHeader.GetMsgLen())
 			_, err = io.ReadFull(c.Conn, readBuf)
 			if err != nil {
-				fmt.Println(err)
+				tlog.Info(err)
 				break
 			}
 
@@ -104,7 +105,7 @@ func (c *Connection) StartRead() {
 }
 
 func (c *Connection) StartWrite() {
-	fmt.Printf("connid:%v writer routine is running\n", c.ConnID)
+	tlog.Info("connid:%v writer routine is running\n", c.ConnID)
 	for {
 		select {
 		case data, ok := <-c.msgChan:

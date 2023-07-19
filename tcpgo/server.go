@@ -7,6 +7,7 @@ import (
 
 	"github.com/brianliucrypto/tcpgo/constant"
 	"github.com/brianliucrypto/tcpgo/iface"
+	"github.com/brianliucrypto/tcpgo/tlog"
 )
 
 type Server struct {
@@ -16,7 +17,9 @@ type Server struct {
 	Ip        string
 	Port      uint32
 
-	maxConnection int
+	maxConnection  int
+	workPoolSize   int
+	writeCacheSize int
 
 	msgHandler        iface.IMessageHandler
 	connectionManager iface.IConnectionManager
@@ -25,17 +28,26 @@ type Server struct {
 	OnConnectionStopCallback  func(iface.IConnection)
 }
 
-func NewServer(name, ipVersion, ip string, port uint32) *Server {
-	return &Server{
-		Name:              name,
+func NewServer(optins ...func(*Server)) *Server {
+	server := &Server{
+		Name:              "tcpgo server",
 		Version:           constant.Version,
-		IpVersion:         ipVersion,
-		Ip:                ip,
-		Port:              port,
-		maxConnection:     3,
-		msgHandler:        NewMessageHandler(),
+		IpVersion:         "tcp4",
+		Ip:                "",
+		Port:              8888,
+		maxConnection:     1024,
+		workPoolSize:      1024,
+		writeCacheSize:    1024,
 		connectionManager: NewConnectionManager(),
 	}
+
+	for _, opt := range optins {
+		opt(server)
+	}
+
+	server.msgHandler = NewMessageHandler(uint32(server.workPoolSize))
+
+	return server
 }
 
 func (s *Server) Start() {
@@ -44,7 +56,7 @@ func (s *Server) Start() {
 		return
 	}
 
-	fmt.Printf("server is running, ip:%v, port:%v\n", s.Ip, s.Port)
+	tlog.Info("server is running, ip:%v, port:%v\n", s.Ip, s.Port)
 
 	s.msgHandler.Start()
 
@@ -56,13 +68,13 @@ func (s *Server) Start() {
 		}
 
 		if s.connectionManager.GetConnectionCount() >= s.maxConnection {
-			fmt.Println("too many connections")
+			tlog.Info("too many connections")
 			conn.Close()
 			continue
 		}
 
-		fmt.Printf("new connection, reomte:%v,id:%v\n", conn.RemoteAddr(), connID.Load())
-		newConn := NewConneciton(s, connID.Load(), conn)
+		tlog.Info("new connection, reomte:%v,id:%v\n", conn.RemoteAddr(), connID.Load())
+		newConn := NewConneciton(s, connID.Load(), uint32(s.writeCacheSize), conn)
 		newConn.Start()
 		connID.Add(1)
 	}
@@ -111,5 +123,47 @@ func (s *Server) CallOnConnStart(conn iface.IConnection) {
 func (s *Server) CallOnConnStop(conn iface.IConnection) {
 	if s.OnConnectionStopCallback != nil {
 		s.OnConnectionStopCallback(conn)
+	}
+}
+
+func WithName(name string) func(*Server) {
+	return func(s *Server) {
+		s.Name = name
+	}
+}
+
+func WithIpVersion(version string) func(*Server) {
+	return func(s *Server) {
+		s.IpVersion = version
+	}
+}
+
+func WithIp(ip string) func(*Server) {
+	return func(s *Server) {
+		s.Ip = ip
+	}
+}
+
+func WithPort(port uint32) func(*Server) {
+	return func(s *Server) {
+		s.Port = port
+	}
+}
+
+func WithMaxConnection(maxConnection int) func(*Server) {
+	return func(s *Server) {
+		s.maxConnection = maxConnection
+	}
+}
+
+func WithWorkPoolSize(workPoolSize int) func(*Server) {
+	return func(s *Server) {
+		s.workPoolSize = workPoolSize
+	}
+}
+
+func WithWriteCacheSize(writeCacheSize int) func(*Server) {
+	return func(s *Server) {
+		s.writeCacheSize = writeCacheSize
 	}
 }
