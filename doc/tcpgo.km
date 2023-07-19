@@ -442,6 +442,73 @@
                         ]
                     }
                 ]
+            },
+            {
+                "data": {
+                    "id": "cu5qabhru9s0",
+                    "created": 1689727156610,
+                    "text": "connectionManger"
+                },
+                "children": [
+                    {
+                        "data": {
+                            "id": "cu5qams4zi80",
+                            "created": 1689727181182,
+                            "text": "attribute"
+                        },
+                        "children": [
+                            {
+                                "data": {
+                                    "id": "cu5qaqa192o0",
+                                    "created": 1689727188794,
+                                    "text": "connections"
+                                },
+                                "children": []
+                            }
+                        ]
+                    },
+                    {
+                        "data": {
+                            "id": "cu5qaylrobk0",
+                            "created": 1689727206918,
+                            "text": "function"
+                        },
+                        "children": [
+                            {
+                                "data": {
+                                    "id": "cu5qb38c9so0",
+                                    "created": 1689727216990,
+                                    "text": "AddConnection"
+                                },
+                                "children": []
+                            },
+                            {
+                                "data": {
+                                    "id": "cu5qbbgqwjc0",
+                                    "created": 1689727234913,
+                                    "text": "RemoveConnection"
+                                },
+                                "children": []
+                            },
+                            {
+                                "data": {
+                                    "id": "cu5qbh3tuxs0",
+                                    "created": 1689727247192,
+                                    "text": "GetConnection"
+                                },
+                                "children": []
+                            },
+                            {
+                                "data": {
+                                    "id": "cu5qbvmikvk0",
+                                    "created": 1689727278797,
+                                    "text": "ClearConnection"
+                                },
+                                "children": []
+                            }
+                        ]
+                    }
+                ]
             }
         ]
     },

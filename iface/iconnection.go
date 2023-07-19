@@ -18,4 +18,10 @@ type IConnection interface {
 	GetConnection() net.Conn
 
 	SendMessage(IRequest) error
+
+	SetProperty(string, interface{})
+
+	GetProperty(string) (interface{}, error)
+
+	RemoveProperty(string)
 }

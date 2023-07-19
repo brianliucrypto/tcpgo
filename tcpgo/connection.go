@@ -1,9 +1,11 @@
 package tcpgo
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/brianliucrypto/tcpgo/iface"
 )
@@ -14,26 +16,33 @@ type Connection struct {
 
 	msgChan chan iface.IMessage
 
-	msgHandler iface.IMessageHandler
+	server iface.IServer
 
 	isClose   bool
 	ExitChain chan struct{}
+
+	property     map[string]interface{}
+	propertyLock sync.RWMutex
 }
 
-func NewConneciton(connID uint32, conn net.Conn, msgHandler iface.IMessageHandler) *Connection {
+func NewConneciton(server iface.IServer, connID uint32, conn net.Conn) *Connection {
 	return &Connection{
-		Conn:       conn,
-		ConnID:     connID,
-		msgHandler: msgHandler,
-		msgChan:    make(chan iface.IMessage, 1024),
-		isClose:    false,
-		ExitChain:  make(chan struct{}),
+		server:    server,
+		Conn:      conn,
+		ConnID:    connID,
+		msgChan:   make(chan iface.IMessage, 1024),
+		isClose:   false,
+		ExitChain: make(chan struct{}),
+		property:  make(map[string]interface{}),
 	}
 }
 
 func (c *Connection) Start() {
 	go c.StartRead()
 	go c.StartWrite()
+
+	c.server.GetConnectionManager().AddConnection(c)
+	c.server.CallOnConnStart(c)
 }
 
 func (c *Connection) Stop() {
@@ -44,6 +53,9 @@ func (c *Connection) Stop() {
 
 	c.isClose = true
 	c.Conn.Close()
+
+	c.server.GetConnectionManager().RemoveConnection(c)
+	c.server.CallOnConnStop(c)
 
 	c.ExitChain <- struct{}{}
 	close(c.ExitChain)
@@ -86,7 +98,7 @@ func (c *Connection) StartRead() {
 			Message: msgHeader.(*Message),
 		}
 
-		c.msgHandler.SendMessage2Queue(request)
+		c.server.GetMessageHandler().SendMessage2Queue(request)
 	}
 
 }
@@ -128,4 +140,30 @@ func (c *Connection) GetConnection() net.Conn {
 func (c *Connection) SendMessage(request iface.IRequest) error {
 	c.msgChan <- request.GetMessage()
 	return nil
+}
+
+func (c *Connection) SetProperty(key string, value interface{}) {
+	c.propertyLock.Lock()
+	defer c.propertyLock.Unlock()
+
+	c.property[key] = value
+}
+
+func (c *Connection) GetProperty(key string) (interface{}, error) {
+	c.propertyLock.RLock()
+	defer c.propertyLock.RUnlock()
+
+	val, ok := c.property[key]
+	if !ok {
+		return nil, errors.New("key not found")
+	}
+
+	return val, nil
+}
+
+func (c *Connection) RemoveProperty(key string) {
+	c.propertyLock.Lock()
+	defer c.propertyLock.Unlock()
+
+	delete(c.property, key)
 }
