@@ -59,8 +59,8 @@ func (m *MessageHandler) SendMessage2Queue(message iface.IRequest) {
 }
 
 func (m *MessageHandler) receiveMessage(index int, messageChan chan iface.IRequest) {
-	defer tlog.Info("receiveMessage exit, index:", index)
-	tlog.Info("receiveMessage start, index:", index)
+	defer tlog.Info("receiveMessage exit, index:%v", index)
+	tlog.Info("receiveMessage start, index:%v", index)
 	for {
 		select {
 		case message := <-messageChan:
