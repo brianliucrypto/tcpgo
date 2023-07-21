@@ -3,7 +3,10 @@ package tcpgo
 import (
 	"fmt"
 	"net"
+	"os"
+	"os/signal"
 	"sync/atomic"
+	"syscall"
 
 	"github.com/brianliucrypto/tcpgo/constant"
 	"github.com/brianliucrypto/tcpgo/iface"
@@ -11,11 +14,11 @@ import (
 )
 
 type Server struct {
-	Name      string
-	Version   string
-	IpVersion string
-	Ip        string
-	Port      uint32
+	name      string
+	version   string
+	ipVersion string
+	ip        string
+	port      uint32
 
 	maxConnection  int
 	workPoolSize   int
@@ -24,19 +27,22 @@ type Server struct {
 	msgHandler        iface.IMessageHandler
 	connectionManager iface.IConnectionManager
 
+	exitChan chan struct{}
+
 	onConnectionStartCallback func(iface.IConnection)
 	OnConnectionStopCallback  func(iface.IConnection)
 }
 
 func NewServer(optins ...func(*Server)) *Server {
 	server := &Server{
-		Name:              "tcpgo server",
-		Version:           constant.Version,
-		IpVersion:         "tcp4",
-		Ip:                "",
-		Port:              8888,
+		name:              "tcpgo server",
+		version:           constant.Version,
+		ipVersion:         "tcp4",
+		ip:                "",
+		port:              8888,
 		maxConnection:     1024,
 		workPoolSize:      4,
+		exitChan:          make(chan struct{}, 1),
 		writeCacheSize:    1024,
 		connectionManager: NewConnectionManager(),
 	}
@@ -51,44 +57,59 @@ func NewServer(optins ...func(*Server)) *Server {
 }
 
 func (s *Server) Start() {
-	listener, err := net.Listen(s.IpVersion, fmt.Sprintf("%v:%v", s.Ip, s.Port))
+	listener, err := net.Listen(s.ipVersion, fmt.Sprintf("%v:%v", s.ip, s.port))
 	if err != nil {
 		return
 	}
 
-	tlog.Info("server is running, ip:%v, port:%v", s.Ip, s.Port)
+	tlog.Info("server is running, ip:%v, port:%v", s.ip, s.port)
 
 	s.msgHandler.Start()
 
 	var connID atomic.Uint32
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			return
-		}
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
 
-		if s.connectionManager.GetConnectionCount() >= s.maxConnection {
-			tlog.Info("too many connections")
-			conn.Close()
-			continue
-		}
+			if s.connectionManager.GetConnectionCount() >= s.maxConnection {
+				tlog.Info("too many connections")
+				conn.Close()
+				continue
+			}
 
-		tlog.Info("new connection, reomte:%v,id:%v", conn.RemoteAddr(), connID.Load())
-		newConn := NewConneciton(s, connID.Load(), uint32(s.writeCacheSize), conn)
-		newConn.Start()
-		connID.Add(1)
+			tlog.Info("new connection, reomte:%v,id:%v", conn.RemoteAddr(), connID.Load())
+			newConn := NewConneciton(s, connID.Load(), uint32(s.writeCacheSize), conn)
+			newConn.Start()
+			connID.Add(1)
+		}
+	}()
+
+	<-s.exitChan
+	err = listener.Close()
+	if err != nil {
+		tlog.Error("server close error:%v", err)
 	}
 }
 
 func (s *Server) Stop() {
 	s.msgHandler.Stop()
 	s.connectionManager.ClearConnection()
+
+	s.exitChan <- struct{}{}
+	close(s.exitChan)
 }
 
 func (s *Server) Serve() {
 	go s.Start()
 
-	select {}
+	osChan := make(chan os.Signal, 1)
+	signal.Notify(osChan, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM,
+		syscall.SIGQUIT)
+	<-osChan
+	s.Stop()
 }
 
 func (s *Server) AddRouter(msgID uint32, router iface.IRouter) {
@@ -128,25 +149,25 @@ func (s *Server) CallOnConnStop(conn iface.IConnection) {
 
 func WithName(name string) func(*Server) {
 	return func(s *Server) {
-		s.Name = name
+		s.name = name
 	}
 }
 
 func WithIpVersion(version string) func(*Server) {
 	return func(s *Server) {
-		s.IpVersion = version
+		s.ipVersion = version
 	}
 }
 
 func WithIp(ip string) func(*Server) {
 	return func(s *Server) {
-		s.Ip = ip
+		s.ip = ip
 	}
 }
 
 func WithPort(port uint32) func(*Server) {
 	return func(s *Server) {
-		s.Port = port
+		s.port = port
 	}
 }
 
