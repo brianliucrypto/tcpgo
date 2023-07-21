@@ -82,7 +82,7 @@ func (s *Server) Start() {
 
 			tlog.Info("new connection, reomte:%v,id:%v", conn.RemoteAddr(), connID.Load())
 			newConn := NewConneciton(s, connID.Load(), uint32(s.writeCacheSize), conn)
-			newConn.Start()
+			go newConn.Start()
 			connID.Add(1)
 		}
 	}()
