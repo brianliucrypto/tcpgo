@@ -84,13 +84,13 @@ func (c *Connection) StartRead() {
 			cnt, err := io.ReadFull(c.conn, readBuf)
 			if err != nil {
 				tlog.Info(err.Error())
-				break
+				return
 			}
 
 			msgHeader, err := packer.Unpack(readBuf[:cnt])
 			if err != nil {
 				tlog.Info(err.Error())
-				break
+				return
 			}
 
 			if msgHeader.GetMsgLen() > 0 {
@@ -98,7 +98,7 @@ func (c *Connection) StartRead() {
 				_, err = io.ReadFull(c.conn, readBuf)
 				if err != nil {
 					tlog.Info(err.Error())
-					break
+					return
 				}
 
 				msg := msgHeader.(*Message)
