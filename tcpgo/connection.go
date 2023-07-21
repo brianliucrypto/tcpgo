@@ -1,6 +1,7 @@
 package tcpgo
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net"
@@ -11,15 +12,17 @@ import (
 )
 
 type Connection struct {
-	Conn   net.Conn
-	ConnID uint32
+	conn   net.Conn
+	connID uint32
 
 	msgChan chan iface.IMessage
 
 	server iface.IServer
 
-	isClose   bool
-	ExitChain chan struct{}
+	isClose bool
+
+	ctx        context.Context
+	cancelFunc context.CancelFunc
 
 	property     map[string]interface{}
 	propertyLock sync.RWMutex
@@ -27,87 +30,100 @@ type Connection struct {
 
 func NewConneciton(server iface.IServer, connID, writeCacheSize uint32, conn net.Conn) *Connection {
 	return &Connection{
-		server:    server,
-		Conn:      conn,
-		ConnID:    connID,
-		msgChan:   make(chan iface.IMessage, writeCacheSize),
-		isClose:   false,
-		ExitChain: make(chan struct{}),
-		property:  make(map[string]interface{}),
+		server:   server,
+		conn:     conn,
+		connID:   connID,
+		msgChan:  make(chan iface.IMessage, writeCacheSize),
+		isClose:  false,
+		property: make(map[string]interface{}),
 	}
 }
 
 func (c *Connection) Start() {
+	c.ctx, c.cancelFunc = context.WithCancel(context.Background())
+	c.server.CallOnConnStart(c)
+	c.server.GetConnectionManager().AddConnection(c)
+
 	go c.StartRead()
 	go c.StartWrite()
 
-	c.server.GetConnectionManager().AddConnection(c)
-	c.server.CallOnConnStart(c)
+	<-c.ctx.Done()
+	c.finalizer()
 }
 
 func (c *Connection) Stop() {
+	c.cancelFunc()
+}
+
+func (c *Connection) finalizer() {
 	if c.isClose {
 		return
 	}
-	tlog.Info("connid:%v stop\n", c.ConnID)
+	tlog.Info("connid:%v stop", c.connID)
 
 	c.isClose = true
-	c.Conn.Close()
+	c.conn.Close()
 
 	c.server.GetConnectionManager().RemoveConnection(c)
 	c.server.CallOnConnStop(c)
 
-	c.ExitChain <- struct{}{}
-	close(c.ExitChain)
 	close(c.msgChan)
 }
 
 func (c *Connection) StartRead() {
-	tlog.Info("connid:%v reader routine is running", c.ConnID)
+	tlog.Info("connid:%v reader routine is running", c.connID)
 	defer c.Stop()
 
 	for {
-		packer := NewPack()
-		readBuf := make([]byte, packer.GetHeadLen())
-		cnt, err := io.ReadFull(c.Conn, readBuf)
-		if err != nil {
-			tlog.Info(err.Error())
-			break
-		}
-
-		msgHeader, err := packer.Unpack(readBuf[:cnt])
-		if err != nil {
-			tlog.Info(err.Error())
-			break
-		}
-
-		if msgHeader.GetMsgLen() > 0 {
-			readBuf := make([]byte, msgHeader.GetMsgLen())
-			_, err = io.ReadFull(c.Conn, readBuf)
+		select {
+		case <-c.ctx.Done():
+			return
+		default:
+			packer := NewPack()
+			readBuf := make([]byte, packer.GetHeadLen())
+			cnt, err := io.ReadFull(c.conn, readBuf)
 			if err != nil {
 				tlog.Info(err.Error())
 				break
 			}
 
-			msg := msgHeader.(*Message)
-			msg.Data = readBuf
-		}
+			msgHeader, err := packer.Unpack(readBuf[:cnt])
+			if err != nil {
+				tlog.Info(err.Error())
+				break
+			}
 
-		request := &Request{
-			Conn:    c,
-			Message: msgHeader.(*Message),
-		}
+			if msgHeader.GetMsgLen() > 0 {
+				readBuf := make([]byte, msgHeader.GetMsgLen())
+				_, err = io.ReadFull(c.conn, readBuf)
+				if err != nil {
+					tlog.Info(err.Error())
+					break
+				}
 
-		c.server.GetMessageHandler().SendMessage2Queue(request)
+				msg := msgHeader.(*Message)
+				msg.Data = readBuf
+			}
+
+			request := &Request{
+				Conn:    c,
+				Message: msgHeader.(*Message),
+			}
+
+			c.server.GetMessageHandler().SendMessage2Queue(request)
+		}
 	}
-
 }
 
 func (c *Connection) StartWrite() {
-	tlog.Info("connid:%v writer routine is running", c.ConnID)
+	defer tlog.Info("connid:%v writer routine is stoping", c.connID)
+	tlog.Info("connid:%v writer routine is running", c.connID)
 	for {
 		select {
-		case data, ok := <-c.msgChan:
+		case <-c.ctx.Done():
+			return
+		default:
+			data, ok := <-c.msgChan
 			if !ok {
 				break
 			}
@@ -117,24 +133,21 @@ func (c *Connection) StartWrite() {
 				break
 			}
 
-			_, err = c.Conn.Write(d)
+			_, err = c.conn.Write(d)
 			if err != nil {
 				tlog.Info("write error:%v", err)
 			}
-
-		case <-c.ExitChain:
-			return
 		}
 	}
 }
 
 func (c *Connection) GetConnID() uint32 {
-	return c.ConnID
+	return c.connID
 
 }
 
 func (c *Connection) GetConnection() net.Conn {
-	return c.Conn
+	return c.conn
 }
 
 func (c *Connection) SendMessage(request iface.IRequest) error {
